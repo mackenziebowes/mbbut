@@ -1,0 +1,6 @@
+/target
+/Cargo.lock
+**/*.rs.bk
+*.json
+*.toml.bak
+/mbbut_config.toml

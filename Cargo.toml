@@ -1,0 +1,19 @@
+[package]
+name = "mbbut"
+version = "0.1.0"
+edition = "2021"
+description = "Mackenzie Bowes' Back Up Tool - a backup utility for Windows to Linux migration"
+authors = ["Mackenzie Bowes"]
+
+[dependencies]
+walkdir = "2.4.0"
+blake3 = "1.5.0"
+zstd = "0.13.0"
+rayon = "1.8.0"
+clap = { version = "4.4.11", features = ["derive"] }
+cliclack = "0.1.8"
+serde = { version = "1.0.193", features = ["derive"] }
+serde_json = "1.0.108"
+toml = "0.8.8"
+anyhow = "1.0.75"
+indicatif = "0.17.7"
