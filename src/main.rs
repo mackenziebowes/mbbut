@@ -34,6 +34,7 @@ enum Commands {
         /// Path to the configuration file
         #[clap(short, long)]
         config: Option<PathBuf>,
+    },
     /// Decompress a file
     Decompress {
         /// Path to the compressed file (.zst)
@@ -231,6 +232,7 @@ fn main() -> Result<()> {
 
                     let mut backup_job = backup::BackupJob::new(config, hash_registry);
                     backup_job.resume()?;
+                }
                 "decompress" => {
                     let source_path: String = input("Path to compressed file")
                         .placeholder("/path/to/file.zst")
@@ -260,10 +262,13 @@ fn main() -> Result<()> {
                         .interact()?;
                         
                     log::info("Decompressing file...")?;
-                    compression::decompress_file(source_path, destination_path)
+                    let source = PathBuf::from(source_path);
+                    let destination = PathBuf::from(destination_path);
+                    
+                    compression::decompress_file(&source, &destination)
                         .context("Failed to decompress file")?;
                         
-                    log::success("File decompressed successfully!")?;
+                    log::success(&format!("File decompressed to {}", destination.display()))?;
                 }
                 _ => unreachable!(),
             }

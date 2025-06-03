@@ -22,7 +22,7 @@ impl BackupJob {
     }
 
     /// Collects files that need to be processed, skipping blacklisted items and already processed files
-    fn collect_files_to_process(&self) -> Result<Vec<std::path::PathBuf>> {
+    fn collect_files_to_process(&self) -> Result<Vec<PathBuf>> {
         let source_path = self
             .config
             .source_path
@@ -60,7 +60,7 @@ impl BackupJob {
     }
 
     /// Process a list of files with appropriate progress reporting
-    fn process_files(&mut self, files_to_process: Vec<std::path::PathBuf>, message: String) -> Result<()> {
+    fn process_files(&mut self, files_to_process: Vec<PathBuf>, message: String) -> Result<()> {
         let source_path = self
             .config
             .source_path
