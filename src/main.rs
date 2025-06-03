@@ -34,6 +34,15 @@ enum Commands {
         /// Path to the configuration file
         #[clap(short, long)]
         config: Option<PathBuf>,
+    /// Decompress a file
+    Decompress {
+        /// Path to the compressed file (.zst)
+        #[clap(short, long)]
+        source: PathBuf,
+        
+        /// Path where the decompressed file will be saved
+        #[clap(short, long)]
+        destination: PathBuf,
     },
 }
 
@@ -156,12 +165,25 @@ fn main() -> Result<()> {
             let output_path = output.unwrap_or_else(|| PathBuf::from("mbbut_config.toml"));
             config.save_to_file(output_path)?;
         }
+        Some(Commands::Decompress { source, destination }) => {
+            log::info("Decompressing file...")?;
+            
+            if !source.exists() {
+                return Err(anyhow::anyhow!("Source file does not exist"));
+            }
+            
+            compression::decompress_file(&source, &destination)
+                .context("Failed to decompress file")?;
+            
+            log::success(&format!("File decompressed to {}", destination.display()))?;
+        }
         None => {
             // If no command is provided, run interactive mode
             let run_backup = select("What would you like to do?")
                 .item("setup", "Set up a new backup configuration", "")
                 .item("run", "Run backup with existing configuration", "")
                 .item("resume", "Resume an interrupted backup", "")
+                .item("decompress", "Decompress a file", "")
                 .interact()?;
 
             match run_backup {
@@ -209,6 +231,39 @@ fn main() -> Result<()> {
 
                     let mut backup_job = backup::BackupJob::new(config, hash_registry);
                     backup_job.resume()?;
+                "decompress" => {
+                    let source_path: String = input("Path to compressed file")
+                        .placeholder("/path/to/file.zst")
+                        .validate(|input: &String| {
+                            if input.is_empty() {
+                                Err("Path cannot be empty")
+                            } else {
+                                let path = PathBuf::from(input);
+                                if !path.exists() {
+                                    Err("File does not exist")
+                                } else {
+                                    Ok(())
+                                }
+                            }
+                        })
+                        .interact()?;
+                        
+                    let destination_path: String = input("Destination path")
+                        .placeholder("/path/to/decompressed/file")
+                        .validate(|input: &String| {
+                            if input.is_empty() {
+                                Err("Path cannot be empty")
+                            } else {
+                                Ok(())
+                            }
+                        })
+                        .interact()?;
+                        
+                    log::info("Decompressing file...")?;
+                    compression::decompress_file(source_path, destination_path)
+                        .context("Failed to decompress file")?;
+                        
+                    log::success("File decompressed successfully!")?;
                 }
                 _ => unreachable!(),
             }
