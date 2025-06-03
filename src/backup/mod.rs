@@ -21,22 +21,14 @@ impl BackupJob {
         }
     }
 
-    pub fn run(&mut self) -> Result<()> {
+    /// Collects files that need to be processed, skipping blacklisted items and already processed files
+    fn collect_files_to_process(&self) -> Result<Vec<std::path::PathBuf>> {
         let source_path = self
             .config
             .source_path
             .as_ref()
             .context("Source path not set")?;
-        let destination_path = self
-            .config
-            .destination_path
-            .as_ref()
-            .context("Destination path not set")?;
-
-        // Create destination directory if it doesn't exist
-        fs::create_dir_all(destination_path)?;
-
-        // Collect files first (skipping blacklisted items)
+            
         let mut files_to_process = Vec::new();
 
         for entry in WalkDir::new(source_path)
@@ -63,6 +55,25 @@ impl BackupJob {
 
             files_to_process.push(path.to_path_buf());
         }
+
+        Ok(files_to_process)
+    }
+
+    /// Process a list of files with appropriate progress reporting
+    fn process_files(&mut self, files_to_process: Vec<std::path::PathBuf>, message: String) -> Result<()> {
+        let source_path = self
+            .config
+            .source_path
+            .as_ref()
+            .context("Source path not set")?;
+        let destination_path = self
+            .config
+            .destination_path
+            .as_ref()
+            .context("Destination path not set")?;
+
+        // Create destination directory if it doesn't exist
+        fs::create_dir_all(destination_path)?;
 
         // Set up progress bar
         let pb = ProgressBar::new(files_to_process.len() as u64);
@@ -96,7 +107,7 @@ impl BackupJob {
             pb.inc(1);
         });
 
-        pb.finish_with_message("Backup completed");
+        pb.finish_with_message(message);
 
         // Save the updated hash registry
         if let Some(hash_file_path) = &self.config.hash_file_path {
@@ -104,6 +115,31 @@ impl BackupJob {
         }
 
         Ok(())
+    }
+
+    /// Run a full backup operation
+    pub fn run(&mut self) -> Result<()> {
+        let files_to_process = self.collect_files_to_process()?;
+        
+        if files_to_process.is_empty() {
+            println!("No files to backup. Everything is already up to date.");
+            return Ok(());
+        }
+        
+        self.process_files(files_to_process, "Backup completed".to_string())
+    }
+    
+    /// Resume a previously interrupted backup
+    pub fn resume(&mut self) -> Result<()> {
+        let files_to_process = self.collect_files_to_process()?;
+        
+        if files_to_process.is_empty() {
+            println!("No files to resume. The backup is already complete.");
+            return Ok(());
+        }
+        
+        println!("Resuming backup with {} files remaining", files_to_process.len());
+        self.process_files(files_to_process, "Resume completed".to_string())
     }
 }
 

@@ -29,6 +29,12 @@ enum Commands {
         #[clap(short, long)]
         output: Option<PathBuf>,
     },
+    /// Resume a previously interrupted backup transfer
+    Resume {
+        /// Path to the configuration file
+        #[clap(short, long)]
+        config: Option<PathBuf>,
+    },
 }
 
 fn run_interactive_setup() -> Result<config::Config> {
@@ -124,6 +130,24 @@ fn main() -> Result<()> {
             let mut backup_job = backup::BackupJob::new(config, hash_registry);
             backup_job.run()?;
         }
+        Some(Commands::Resume { config }) => {
+            // Load config
+            let config_path = config.unwrap_or_else(|| PathBuf::from("mbbut_config.toml"));
+            let config = config::Config::load_from_file(&config_path)
+                .context("Failed to load configuration file")?;
+
+            // Load hash registry
+            let hash_file_path = config
+                .hash_file_path
+                .as_ref()
+                .context("Hash file path not set in config")?;
+            let hash_registry = hashing::HashRegistry::load_from_file(hash_file_path)
+                .context("Failed to load hash registry")?;
+
+            // Create and resume backup job
+            let mut backup_job = backup::BackupJob::new(config, hash_registry);
+            backup_job.resume()?;
+        }
         Some(Commands::Setup { output }) => {
             // Interactive setup
             let config = run_interactive_setup()?;
@@ -137,6 +161,7 @@ fn main() -> Result<()> {
             let run_backup = select("What would you like to do?")
                 .item("setup", "Set up a new backup configuration", "")
                 .item("run", "Run backup with existing configuration", "")
+                .item("resume", "Resume an interrupted backup", "")
                 .interact()?;
 
             match run_backup {
@@ -164,6 +189,26 @@ fn main() -> Result<()> {
 
                     let mut backup_job = backup::BackupJob::new(config, hash_registry);
                     backup_job.run()?;
+                }
+                "resume" => {
+                    let config_path = PathBuf::from("mbbut_config.toml");
+                    if !config_path.exists() {
+                        log::error("No configuration file found. Please run setup first.")?;
+                        return Ok(());
+                    }
+
+                    let config = config::Config::load_from_file(&config_path)
+                        .context("Failed to load configuration file")?;
+
+                    let hash_file_path = config
+                        .hash_file_path
+                        .as_ref()
+                        .context("Hash file path not set in config")?;
+                    let hash_registry = hashing::HashRegistry::load_from_file(hash_file_path)
+                        .context("Failed to load hash registry")?;
+
+                    let mut backup_job = backup::BackupJob::new(config, hash_registry);
+                    backup_job.resume()?;
                 }
                 _ => unreachable!(),
             }
